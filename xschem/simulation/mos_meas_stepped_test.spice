@@ -1,0 +1,54 @@
+** sch_path: /foss/designs/ngspice-batch-runner/xschem/mos_meas_stepped_test.sch
+**.subckt mos_meas_stepped_test
+Vd Vd GND 1.8V
+Vs Vs GND 0
+XM1 net1 Vg Vs Vs sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+vids Vd net1 0
+.save  i(vids)
+Vg Vg GND 0
+**** begin user architecture code
+ *.lib /foss/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.include /foss/pdk/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice
+
+
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+.include /foss/pdk/sky130A/libs.tech/ngspice/corners/tt.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/r+c/res_typical__cap_typical.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/r+c/res_typical__cap_typical__lin.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/corners/tt/specialized_cells.spice
+
+
+
+* ngspice commands
+
+.control
+
+let vg_val = 0
+
+while vg_val le 1.9
+	alter vg vg_val
+	dc vd 0 1.8 10e-3
+
+	set fn = test_nmos_vg{$&vg_val}.txt
+	echo Writing $fn
+	wrdata $fn i(vids)
+
+	let vg_val = vg_val + 0.2
+
+end
+
+.endc
+
+
+
+
+
+
+
+**** end user architecture code
+**.ends
+.GLOBAL GND
+.end

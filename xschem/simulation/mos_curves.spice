@@ -1,0 +1,91 @@
+** sch_path: /foss/designs/ngspice-batch-runner/xschem/mos_curves.sch
+**.subckt mos_curves
+Vd Vd GND 1.8V
+Vs Vs GND 0
+XM1 net1 Vg Vs Vs sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+vids Vd net1 0
+.save  i(vids)
+Vg Vg GND 0
+**** begin user architecture code
+ *.lib /foss/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+.include /foss/pdk/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice
+
+
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+.include /foss/pdk/sky130A/libs.tech/ngspice/corners/tt.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/r+c/res_typical__cap_typical.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/r+c/res_typical__cap_typical__lin.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/corners/tt/specialized_cells.spice
+
+
+
+
+* ngspice commands
+.options list acct opts
+.control
+
+* Go to the const plot
+setplot const
+
+echo
+echo AWS Iterator = $iterator
+echo
+
+let iter_shift = 0.5
+let vg_val = 0 + $iterator * $&iter_shift
+let vstart = $&vg_val
+let vmax = $&iter_shift + $iterator * $&iter_shift
+let vdelta = 0.1
+let total_runs = ceil(($&vmax - $&vg_val) / $&vdelta)
+let runs = 0 + $iterator * $&total_runs
+let runs_start = $&runs
+
+* Insert vector names and set only one scale
+set wr_vecnames
+set wr_singlescale
+
+* set the hcopy type
+set hcopydevtype=svg
+
+
+while vg_val lt $&vmax
+	* Alter the voltages
+	alter vg vg_val
+
+	dc vd 0 1.8 10e-3
+
+	set plotfile0 = plot_mos_{$&runs}_{$&vg_val}.svg
+	set plottitle = run{$runs}_vgs{$&vg_val}
+	hardcopy $plotfile0 i(vids) title $plottitle
+
+
+	* set the iterators
+	echo run $&runs
+	let vg_val = vg_val + vdelta
+	let runs = runs + 1
+
+	* Destroy the transient plot to release memory
+	destroy dc1
+
+end
+
+* switch to the const plot
+setplot const
+
+echo
+echo AWS Iterator = $iterator
+echo Total Runs = ($&total_runs + 1)
+echo From $&vstart V to $&vmax V
+echo From Run $&runs_start to $&runs
+echo
+.endc
+
+
+
+**** end user architecture code
+**.ends
+.GLOBAL GND
+.end

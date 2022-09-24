@@ -1,2 +1,4 @@
-*/simulation/*
+#*/simulation/*
+*.svg
 /docker_volume/*
+.DS_Store
