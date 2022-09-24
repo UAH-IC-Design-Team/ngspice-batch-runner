@@ -1,0 +1,11 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  loc_test:
+    image: ngspice-batch-runner:latest
+    environment:
+      AWS_BATCH_JOB_ARRAY_INDEX: 1
+      NGSPICE_TEST: mos_curves.spice
+      NGSPICE_TEST_PATH: simulation
+    volumes: 
+     - ./docker_volume:/foss/designs:rw
+
