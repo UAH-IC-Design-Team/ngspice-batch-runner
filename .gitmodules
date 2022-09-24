@@ -1,0 +1,4 @@
+[submodule "xschem/sky130-10-bit-SAR-ADC"]
+	path = xschem/sky130-10-bit-SAR-ADC
+	url = https://github.com/UAH-IC-Design-Team/sky130-10-bit-SAR-ADC.git
+	branch = dev

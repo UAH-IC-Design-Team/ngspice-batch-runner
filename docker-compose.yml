@@ -4,8 +4,13 @@ services:
     image: ngspice-batch-runner:latest
     environment:
       AWS_BATCH_JOB_ARRAY_INDEX: 1
-      NGSPICE_TEST: mos_curves.spice
-      NGSPICE_TEST_PATH: simulation
+      NGSPICE_TEST: sar_adc_code_step_test.spice
+      NGSPICE_TEST_PATH: xschem/simulation
+      # NGSPICE_TEST: sar_adc_code_step_test
+      # NGSPICE_TEST_PATH: tests/sar_adc
+      # XSCHEM_PATH: xschem/sky130-10-bit-SAR-ADC/xschem
+      # ngspice_test: mos_curves.spice
+      # ngspice_test_path: xschem/simulation
     volumes: 
      - ./docker_volume:/foss/designs:rw
 
