@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Run ngspice 
 ls -l /foss/data
 
