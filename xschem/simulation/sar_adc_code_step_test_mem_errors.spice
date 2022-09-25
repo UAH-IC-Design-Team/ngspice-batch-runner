@@ -1,4 +1,5 @@
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/tests/sar_adc/sar_adc_code_step_test.sch
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/tests/sar_adc/sar_adc_code_step_test.sch
 **.subckt sar_adc_code_step_test
 V3 VDD GND PULSE 0 1.8V 1ns 1us 1ns 1s 1s
 V4 VSS GND 0
@@ -37,19 +38,19 @@ Vp Vin_p Vbias PULSE 0 0.7V 1ns 1us 1ns 1s 1s
 * Go to the const plot
 setplot const
 
-let diff_lsb = 1.8 / 1024
-let diff_step = $&diff_lsb / 2
+echo constant values
+let diff_lsb = 1.7578e-3
+let diff_step = 878.9063e-6
 let steps_per_iter = 8
-let iter_offset = $&steps_per_iter * diff_step
+let iter_offset = 7.0312e-3 
 
-let vdiff = -0.9 + diff_step / 2 + $&iter_offset * $iterator
+let vdiff = -0.9 + 439.4531e-6 + $&iter_offset * $iterator
 let vstart = $&vdiff
-let vmax = $&vdiff + $&iter_offset
-let vdelta = $&diff_step;
+let vmax = $&vdiff + 7.0312e-3
+let vdelta = 878.9063e-6
 
 let total_runs = ceil(($&vmax - $&vdiff) / $&vdelta)
-let runs = 0
-let all_runs = $iterator * $&total_runs
+let runs = $iterator * $&total_runs
 let runs_start = $&runs
 
 let out_bits = vector($&total_runs*10)
@@ -92,10 +93,10 @@ while vdiff lt $&vmax
 	* tran creates a new plot starting with tran1
 	tran 0.1u 340u uic
 
-	set pltfile1 = plot_converg_{$&all_runs}_{$&vdiff}.svg
-	set pltfile2 = plot_input_v_{$&all_runs}_{$&vdiff}.svg
-	set pltfile3 = plot_clks_{$&all_runs}_{$&vdiff}.svg
-	set plttitle = run{$&all_runs}_vin{$&vdiff}
+	set pltfile1 = plot_converg_{$&runs}_{$&vdiff}.svg
+	set pltfile2 = plot_input_v_{$&runs}_{$&vdiff}.svg
+	set pltfile3 = plot_clks_{$&runs}_{$&vdiff}.svg
+	set plttitle = run{$&runs}_vin{$&vdiff}
 	hardcopy $pltfile1 x1.vsampled_p x1.vsampled_n x1.vsampled_p-x1.vsampled_n x1.sw_sample-2
 + x1.comp_out_p+2 x1.comp_out_n-2 title $plttitle
 	*hardcopy $pltfile2 vin_p vin_n vss vdd vbias title $plttitle
@@ -154,9 +155,8 @@ while vdiff lt $&vmax
 
 	* set the iterators
 	echo run $&runs
-	let vdiff = vdiff + vdelta
+	let vdiff = vdiff + 878.9063e-6
 	let runs = runs + 1
-	let all_runs = all_runs + 1
 
 	* Destroy the transient plot to release memory
 	destroy tran1
@@ -183,8 +183,10 @@ echo
 **.ends
 
 * expanding   symbol:  src/sar_adc/sar_adc.sym # of pins=8
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sar_adc/sar_adc.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sar_adc/sar_adc.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/sar_adc/sar_adc.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/sar_adc/sar_adc.sch
 .subckt sar_adc VDD VSS RESET Clk V_in_p V_in_n Done Bit10 Bit9 Bit8 Bit7 Bit6 Bit5 Bit4 Bit3 Bit2
 + Bit1
 *.iopin VDD
@@ -209,8 +211,10 @@ x5 VSS comp_out_p VDD comp_out_n Controller_clk xor_clock_gen
 
 
 * expanding   symbol:  src/controller/controller.sym # of pins=14
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/controller/controller.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/controller/controller.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/controller/controller.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/controller/controller.sch
 .subckt controller VDD controller_clk VSS sw_n_sp9 sw_n_sp8 sw_n_sp7 sw_n_sp6 sw_n_sp5 sw_n_sp4
 + sw_n_sp3 sw_n_sp2 sw_n_sp1 clk sw_n8 sw_n7 sw_n6 sw_n5 sw_n4 sw_n3 sw_n2 sw_n1 reset Vcmp sw_p_sp9 sw_p_sp8
 + sw_p_sp7 sw_p_sp6 sw_p_sp5 sw_p_sp4 sw_p_sp3 sw_p_sp2 sw_p_sp1 sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2
@@ -251,8 +255,10 @@ x5 VDD clk reset VSS sw_sample comparator_clk sample_clock
 
 
 * expanding   symbol:  src/comparator/comparator.sym # of pins=7
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/comparator/comparator.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/comparator/comparator.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/comparator/comparator.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/comparator/comparator.sch
 .subckt comparator VDD VSS Vin_p Out_n Vin_n Out_p ext_clk
 *.iopin VDD
 *.iopin VSS
@@ -322,8 +328,8 @@ x14 net14 VSS VSS VDD VDD Clk sky130_fd_sc_hd__buf_4
 
 
 * expanding   symbol:  src/dac/dac.sym # of pins=8
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dac/dac.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dac/dac.sch
+** sym_path: /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/dac/dac.sym
+** sch_path: /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/dac/dac.sch
 .subckt dac sw_sp_n9 sw_sp_n8 sw_sp_n7 sw_sp_n6 sw_sp_n5 sw_sp_n4 sw_sp_n3 sw_sp_n2 sw_sp_n1 VDD
 + sw_sp_p9 sw_sp_p8 sw_sp_p7 sw_sp_p6 sw_sp_p5 sw_sp_p4 sw_sp_p3 sw_sp_p2 sw_sp_p1 VSS sw_n8 sw_n7 sw_n6 sw_n5
 + sw_n4 sw_n3 sw_n2 sw_n1 Vin_p sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Vin_n
@@ -378,9 +384,9 @@ x31 VDD VSS cap_p8 sw_p8 capacitor_switch2
 
 * expanding   symbol:  src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sym # of pins=7
 ** sym_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sym
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sym
 ** sch_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sch
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sch
 .subckt bootstrapped_sampling_switch VDD Vin_p VSS Vin_n Clk Vout_p Vout_n
 *.iopin VDD
 *.ipin Vin_p
@@ -456,8 +462,10 @@ XM20 net10 Clk_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+
 
 
 * expanding   symbol:  src/xor_clock_gen/xor_clock_gen.sym # of pins=5
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/xor_clock_gen/xor_clock_gen.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/xor_clock_gen/xor_clock_gen.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/xor_clock_gen/xor_clock_gen.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/xor_clock_gen/xor_clock_gen.sch
 .subckt xor_clock_gen VSS Vin_p VDD Vin_n Gen_clk
 *.ipin Vin_p
 *.iopin VSS
@@ -492,8 +500,8 @@ x21 net18 VSS VSS VDD VDD net20 sky130_fd_sc_hd__clkdlybuf4s50_1
 
 
 * expanding   symbol:  src/dec/dec.sym # of pins=7
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dec/dec.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dec/dec.sch
+** sym_path: /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/dec/dec.sym
+** sch_path: /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/dec/dec.sch
 .subckt dec VDD raw_bit13 raw_bit12 raw_bit11 raw_bit10 raw_bit9 raw_bit8 raw_bit7 raw_bit6 raw_bit5
 + raw_bit4 raw_bit3 raw_bit2 raw_bit1 VSS reset_b bit10 bit9 bit8 bit7 bit6 bit5 bit4 bit3 bit2 bit1 done
 + dump_bus
@@ -529,9 +537,9 @@ x82 dump_bus VSS VSS VDD VDD done sky130_fd_sc_hd__inv_1
 
 * expanding   symbol:  src/raw_bit_calculator/raw_bit_calculator.sym # of pins=10
 ** sym_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/raw_bit_calculator/raw_bit_calculator.sym
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/raw_bit_calculator/raw_bit_calculator.sym
 ** sch_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/raw_bit_calculator/raw_bit_calculator.sch
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/raw_bit_calculator/raw_bit_calculator.sch
 .subckt raw_bit_calculator raw_bit13 raw_bit12 raw_bit11 raw_bit10 raw_bit9 raw_bit8 raw_bit7
 + raw_bit6 raw_bit5 raw_bit4 raw_bit3 raw_bit2 raw_bit1 cycle13 cycle12 cycle11 cycle10 cycle9 cycle8 cycle7
 + cycle6 cycle5 cycle4 cycle3 cycle2 cycle1 sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Vcmp RESET VDD
@@ -675,9 +683,9 @@ x98 cycle11 VSS VSS VDD VDD net81 sky130_fd_sc_hd__clkdlybuf4s50_1
 
 * expanding   symbol:  src/shifted_clock_generator/shifted_clock_generator.sym # of pins=6
 ** sym_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/shifted_clock_generator/shifted_clock_generator.sym
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/shifted_clock_generator/shifted_clock_generator.sym
 ** sch_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/shifted_clock_generator/shifted_clock_generator.sch
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/shifted_clock_generator/shifted_clock_generator.sch
 .subckt shifted_clock_generator VDD clk sw_sample VSS reset cycle15 cycle14 cycle13 cycle12 cycle11
 + cycle10 cycle9 cycle8 cycle7 cycle6 cycle5 cycle4 cycle3 cycle2 cycle1 cycle0
 *.opin
@@ -757,8 +765,10 @@ x36 VDD VSS VSS VDD VDD net36 sky130_fd_sc_hd__buf_1
 
 
 * expanding   symbol:  src/sample_clock/sample_clock.sym # of pins=6
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sample_clock/sample_clock.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sample_clock/sample_clock.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/sample_clock/sample_clock.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/sample_clock/sample_clock.sch
 .subckt sample_clock VDD clk reset VSS sw_sample comparator_clk
 *.iopin VDD
 *.ipin clk
@@ -796,8 +806,10 @@ x4 net1 VSS VSS VDD VDD net23 sky130_fd_sc_hd__buf_2
 
 
 * expanding   symbol:  src/capacitor_array/capacitor_array.sym # of pins=6
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_array/capacitor_array.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_array/capacitor_array.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_array/capacitor_array.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_array/capacitor_array.sch
 .subckt capacitor_array Vin_p sw_sp_n9 sw_sp_n8 sw_sp_n7 sw_sp_n6 sw_sp_n5 sw_sp_n4 sw_sp_n3
 + sw_sp_n2 sw_sp_n1 sw_sp_p9 sw_sp_p8 sw_sp_p7 sw_sp_p6 sw_sp_p5 sw_sp_p4 sw_sp_p3 sw_sp_p2 sw_sp_p1 Vin_n
 + sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 sw_n8 sw_n7 sw_n6 sw_n5 sw_n4 sw_n3 sw_n2 sw_n1
@@ -847,9 +859,9 @@ XC34 Vin_p sw_sp_p9 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=
 
 * expanding   symbol:  src/capacitor_switch16/capacitor_switch16.sym # of pins=4
 ** sym_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch16/capacitor_switch16.sym
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch16/capacitor_switch16.sym
 ** sch_path:
-*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch16/capacitor_switch16.sch
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch16/capacitor_switch16.sch
 .subckt capacitor_switch16 VDD VSS Vout Vin
 *.iopin VDD
 *.ipin Vin
@@ -883,8 +895,10 @@ XM8 Vout net3 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)
 
 
 * expanding   symbol:  src/capacitor_switch8/capacitor_switch8.sym # of pins=4
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch8/capacitor_switch8.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch8/capacitor_switch8.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch8/capacitor_switch8.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch8/capacitor_switch8.sch
 .subckt capacitor_switch8 VDD VSS Vout Vin
 *.iopin VDD
 *.ipin Vin
@@ -918,8 +932,10 @@ XM8 Vout net3 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)
 
 
 * expanding   symbol:  src/capacitor_switch4/capacitor_switch4.sym # of pins=4
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch4/capacitor_switch4.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch4/capacitor_switch4.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch4/capacitor_switch4.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch4/capacitor_switch4.sch
 .subckt capacitor_switch4 VDD VSS Vout Vin
 *.iopin VDD
 *.ipin Vin
@@ -941,8 +957,10 @@ XM4 Vout net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)
 
 
 * expanding   symbol:  src/capacitor_switch2/capacitor_switch2.sym # of pins=4
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch2/capacitor_switch2.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch2/capacitor_switch2.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch2/capacitor_switch2.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch2/capacitor_switch2.sch
 .subckt capacitor_switch2 VDD VSS Vout Vin
 *.iopin VDD
 *.ipin Vin
@@ -964,8 +982,10 @@ XM4 Vout net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)
 
 
 * expanding   symbol:  src/demux2/demux2.sym # of pins=6
-** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/demux2/demux2.sym
-** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/demux2/demux2.sch
+** sym_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/demux2/demux2.sym
+** sch_path:
+*+ /foss/designs/ngspice-batch-runner/xschem/sky130-10-bit-SAR-ADC/xschem/src/demux2/demux2.sch
 .subckt demux2 S VDD VSS OUT_0 IN OUT_1
 *.ipin S
 *.opin OUT_0
