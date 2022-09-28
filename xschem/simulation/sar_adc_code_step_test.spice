@@ -79,7 +79,7 @@ set wr_singlescale
 set hcopydevtype=svg
 
 
-while vdiff lt $&vmax
+while $&runs lt $&total_runs
 	echo
 	echo run = $&runs
 	echo Vdiff = $&vdiff
@@ -95,6 +95,7 @@ while vdiff lt $&vmax
 	set pltfile1 = plot_converg_{$&all_runs}_{$&vdiff}.svg
 	set pltfile2 = plot_input_v_{$&all_runs}_{$&vdiff}.svg
 	set pltfile3 = plot_clks_{$&all_runs}_{$&vdiff}.svg
+	set pltfile4 = plot_raw_bits_{$&all_runs}_{$&vdiff}.svg
 	set plttitle = run{$&all_runs}_vin{$&vdiff}
 	hardcopy $pltfile1 x1.vsampled_p x1.vsampled_n x1.vsampled_p-x1.vsampled_n x1.sw_sample-2
 + x1.comp_out_p+2 x1.comp_out_n-2 title $plttitle
@@ -102,6 +103,9 @@ while vdiff lt $&vmax
 	hardcopy $pltfile3 x1.x1.cycle0 x1.x1.cycle1 x1.x1.cycle2 x1.x1.cycle3 x1.x1.cycle4 x1.x1.cycle5
 + x1.x1.cycle6 x1.x1.cycle7 x1.x1.cycle8 x1.x1.cycle9 x1.x1.cycle10 x1.x1.cycle11 x1.x1.cycle12 x1.x1.cycle13
 + x1.x1.cycle14 x1.x1.cycle15 x1.controller_clk+2 title $plttitle
+	hardcopy$pltfile4 x1.comp_out_p-2 x1.comp_out_n-4 x1.x1.raw_bit1 x1.x1.raw_bit2+2 x1.x1.raw_bit3+4
++ x1.x1.raw_bit4+6 x1.x1.raw_bit5+8 x1.x1.raw_bit6+10 x1.x1.raw_bit7+12 x1.x1.raw_bit8+14 x1.x1.raw_bit9+16
++ x1.x1.raw_bit10+18 x1.x1.raw_bit11+20 x1.x1.raw_bit12+22 x1.x1.raw_bit13+24 title $plttitle
 
 
 
