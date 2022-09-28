@@ -1,18 +1,5 @@
 #!/bin/sh
 
-# Run ngspice 
-echo "list the data"
-echo ""
-ls -l /foss/data
-echo ""
-echo "list the designs dir"
-echo ""
-ls -l
-echo ""
-echo "df mountings"
-df
-
-#export ngspice_test=mos_curves.spice
 
 # Create the path
 export data_path=run_data_$(echo $AWS_BATCH_JOB_ARRAY_INDEX)_$(date +%s)
