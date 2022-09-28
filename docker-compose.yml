@@ -1,16 +1,19 @@
 version: "3.9"  # optional since v1.27.0
 services:
-  loc_test:
+  loc_test_1:
+    image: ngspice-batch-runner:latest
+    environment:
+      AWS_BATCH_JOB_ARRAY_INDEX: 0
+      NGSPICE_TEST: sar_adc_sine_test.spice
+      NGSPICE_TEST_PATH: xschem/simulation
+    volumes: 
+     - ./docker_volume:/foss/designs:rw
+  loc_test_2:
     image: ngspice-batch-runner:latest
     environment:
       AWS_BATCH_JOB_ARRAY_INDEX: 1
-      NGSPICE_TEST: sar_adc_code_step_test.spice
+      NGSPICE_TEST: sar_adc_sine_test.spice
       NGSPICE_TEST_PATH: xschem/simulation
-      # NGSPICE_TEST: sar_adc_code_step_test
-      # NGSPICE_TEST_PATH: tests/sar_adc
-      # XSCHEM_PATH: xschem/sky130-10-bit-SAR-ADC/xschem
-      # ngspice_test: mos_curves.spice
-      # ngspice_test_path: xschem/simulation
     volumes: 
      - ./docker_volume:/foss/designs:rw
 
