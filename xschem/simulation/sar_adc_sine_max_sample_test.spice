@@ -1,0 +1,993 @@
+** sch_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/tests/sar_adc/sar_adc_sine_max_sample_test.sch
+**.subckt sar_adc_sine_max_sample_test
+V3 VDD GND PULSE 0 1.8V 1ns 2.5ns 1ns 1s 1s
+V4 VSS GND 0
+x1 VDD VSS reset_b clk Vin_p Vin_n Done Bits10 Bits9 Bits8 Bits7 Bits6 Bits5 Bits4 Bits3 Bits2 Bits1
++ sar_adc
+V1 Vbias GND PULSE 0 0.9V 1ns 2.5ns 1ns 1s 1s
+Vn Vbias Vin_n PULSE 0 0.7V 1ns 2.5ns 1ns 1s 1s
+V5 clk GND PULSE 0 1.8V 50ns 0.1ns 0.1ns 10ns 20ns
+V6 reset_b GND PULSE 0 1.8V 50ns 0.1ns 0.1ns 1s 1s
+Vp Vin_p Vbias PULSE 0 0.7V 1ns 2.5ns 1ns 1s 1s
+**** begin user architecture code
+
+*.lib /foss/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice tt
+
+* .lib /foss/pdk/sky130A/libs.tech/ngspice/sky130.lib.spice.tt.red tt
+
+.include /foss/pdk/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice
+
+
+.param mc_mm_switch=0
+.param mc_pr_switch=0
+.include /foss/pdk/sky130A/libs.tech/ngspice/corners/tt.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/r+c/res_typical__cap_typical.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/r+c/res_typical__cap_typical__lin.spice
+.include /foss/pdk/sky130A/libs.tech/ngspice/corners/tt/specialized_cells.spice
+
+
+
+
+* Requires an iterator variable to be passed in!
+* Simulation calculates (steps_per_iter) bits of
+* a sine wave at times shifted by (iterator)
+
+* Coherent sampling Set for
+* 4 Sigfigs
+* 3.125e3 sample rate
+* 1e3 input freq
+
+* ngspice commands
+.options list acct opts
+.control
+
+* Go to the const plot
+setplot const
+
+let steps_per_iter = 4
+let total_runs = $&steps_per_iter
+let runs = 0
+let all_runs = $iterator * $&total_runs
+let runs_start = $&all_runs
+let phase_offset = 0.1
+
+* These are the coherent values
+let sample_period = 640.3689e-9
+let source_freq = 506.3e3
+
+let vdiff = 0.9 * sin(2 * $&pi * $&source_freq * $&sample_period * $&all_runs + $&phase_offset)
+let vstart = $&vdiff
+
+
+let out_bits = vector($&total_runs*10)
+reshape out_bits[10][$&total_runs]
+let in_diff_v= vector($&total_runs)
+let vsampled_p = vector($&total_runs)
+let vsampled_n = vector($&total_runs)
+let sample_times = vector($&total_runs)
+
+echo
+echo AWS iterator = $iterator
+echo vdiff = $&vdiff
+echo steps_per_iter = $&steps_per_iter
+echo total_runs = $&total_runs
+echo runs = $&runs
+echo
+
+* Insert vector names and set only one scale
+set wr_vecnames
+set wr_singlescale
+
+* set the hcopy type
+set hcopydevtype=svg
+
+
+while $&runs lt $&total_runs
+	echo
+	echo run = $&runs
+	echo Vdiff = $&vdiff
+	echo
+	* Alter the voltages
+	alter @Vp[pulse] = [ 0 $&vdiff 1n 2.5n 1n 1 1 ] $ vector
+	alter @Vn[pulse] = [ 0 $&vdiff 1n 2.5n 1n 1 1 ] $ vector
+
+	* Run the tran
+	* tran creates a new plot starting with tran1
+	tran 0.5n 700n uic
+
+	set pltfile1 = plot_converg_{$&all_runs}_{$&vdiff}.svg
+	set pltfile2 = plot_input_v_{$&all_runs}_{$&vdiff}.svg
+	set pltfile3 = plot_clks_{$&all_runs}_{$&vdiff}.svg
+	set plttitle = run{$&all_runs}_vin{$&vdiff}
+	hardcopy $pltfile1 x1.vsampled_p x1.vsampled_n x1.vsampled_p-x1.vsampled_n x1.sw_sample-2
++ x1.comp_out_p+2 x1.comp_out_n-2 title $plttitle
+	*hardcopy $pltfile2 vin_p vin_n vss vdd vbias title $plttitle
+	hardcopy $pltfile3 x1.x1.cycle0 x1.x1.cycle1 x1.x1.cycle2 x1.x1.cycle3 x1.x1.cycle4 x1.x1.cycle5
++ x1.x1.cycle6 x1.x1.cycle7 x1.x1.cycle8 x1.x1.cycle9 x1.x1.cycle10 x1.x1.cycle11 x1.x1.cycle12 x1.x1.cycle13
++ x1.x1.cycle14 x1.x1.cycle15 x1.controller_clk+2 title $plttitle
+
+
+
+	* Measure the max to find the output
+	meas tran max_bit0 MAX v(bits1) from=650n to=655n
+	meas tran max_bit1 MAX v(bits2) from=650n to=655n
+	meas tran max_bit2 MAX v(bits3) from=650n to=655n
+	meas tran max_bit3 MAX v(bits4) from=650n to=655n
+	meas tran max_bit4 MAX v(bits5) from=650n to=655n
+	meas tran max_bit5 MAX v(bits6) from=650n to=655n
+	meas tran max_bit6 MAX v(bits7) from=650n to=655n
+	meas tran max_bit7 MAX v(bits8) from=650n to=655n
+	meas tran max_bit8 MAX v(bits9) from=650n to=655n
+	meas tran max_bit9 MAX v(bits10) from=650n to=655n
+	meas tran avg_vsampled_p AVG v(x1.vsampled_p) from=605n to=610n
+	meas tran avg_vsampled_n AVG v(x1.vsampled_n) from=605n to=610n
+
+
+	* Create variables
+	set max_bit0 = $&max_bit0
+	set max_bit1 = $&max_bit1
+	set max_bit2 = $&max_bit2
+	set max_bit3 = $&max_bit3
+	set max_bit4 = $&max_bit4
+	set max_bit5 = $&max_bit5
+	set max_bit6 = $&max_bit6
+	set max_bit7 = $&max_bit7
+	set max_bit8 = $&max_bit8
+	set max_bit9 = $&max_bit9
+	set vdiff = $&vdiff
+	set vsampled_p = $&avg_vsampled_p
+	set vsampled_n = $&avg_vsampled_n
+	let this_sample_time = $&sample_period * $&all_runs
+	set this_sample_time = $&this_sample_time
+
+	* Switch to constants plot
+	setplot const
+	*compose out_bits values $&out_bits $p_max $n_max
+	let in_diff_v[$&runs] = $vdiff
+	let vsampled_p[$&runs] = $vsampled_p
+	let vsampled_n[$&runs] = $vsampled_n
+	let sample_times[$&runs] = $this_sample_time
+	let out_bits[0][$&runs] = $max_bit0
+	let out_bits[1][$&runs] = $max_bit1
+	let out_bits[2][$&runs] = $max_bit2
+	let out_bits[3][$&runs] = $max_bit3
+	let out_bits[4][$&runs] = $max_bit4
+	let out_bits[5][$&runs] = $max_bit5
+	let out_bits[6][$&runs] = $max_bit6
+	let out_bits[7][$&runs] = $max_bit7
+	let out_bits[8][$&runs] = $max_bit8
+	let out_bits[9][$&runs] = $max_bit9
+
+	* set the iterators
+	echo run $&runs
+	let runs = runs + 1
+	let all_runs = all_runs + 1
+	let vdiff = 0.9 * sin(2 * $&pi * $&source_freq * $&sample_period * $&all_runs + $&phase_offset)
+
+	* Destroy the transient plot to release memory
+	destroy tran1
+
+end
+
+* switch to the const plot
+setplot const
+compose def_scale start=1 stop=$&total_runs step=1
+setscale def_scale
+echo Writing out_bits.txt
+wrdata out_bits.txt vsampled_p vsampled_n in_diff_v out_bits sample_times
+
+echo
+echo Total Runs = $&runs
+echo Run from = $&runs_start to = $&all_runs
+echo
+.endc
+
+
+
+**** end user architecture code
+**.ends
+
+* expanding   symbol:  src/sar_adc/sar_adc.sym # of pins=8
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sar_adc/sar_adc.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sar_adc/sar_adc.sch
+.subckt sar_adc VDD VSS RESET Clk V_in_p V_in_n Done Bit10 Bit9 Bit8 Bit7 Bit6 Bit5 Bit4 Bit3 Bit2
++ Bit1
+*.iopin VDD
+*.ipin V_in_p
+*.opin Done
+*.iopin VSS
+*.ipin V_in_n
+*.ipin Clk
+*.opin Bit10,Bit9,Bit8,Bit7,Bit6,Bit5,Bit4,Bit3,Bit2,Bit1
+*.ipin RESET
+x1 VDD Controller_clk VSS sw_n_sp9 sw_n_sp8 sw_n_sp7 sw_n_sp6 sw_n_sp5 sw_n_sp4 sw_n_sp3 sw_n_sp2
++ sw_n_sp1 Clk sw_n8 sw_n7 sw_n6 sw_n5 sw_n4 sw_n3 sw_n2 sw_n1 RESET comp_out_p sw_p_sp9 sw_p_sp8 sw_p_sp7
++ sw_p_sp6 sw_p_sp5 sw_p_sp4 sw_p_sp3 sw_p_sp2 sw_p_sp1 sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Bit10
++ Bit9 Bit8 Bit7 Bit6 Bit5 Bit4 Bit3 Bit2 Bit1 Done sw_sample comparator_clk controller
+x2 VDD VSS Vsampled_p comp_out_n Vsampled_n comp_out_p comparator_clk comparator
+x3 sw_n_sp9 sw_n_sp8 sw_n_sp7 sw_n_sp6 sw_n_sp5 sw_n_sp4 sw_n_sp3 sw_n_sp2 sw_n_sp1 VDD sw_p_sp9
++ sw_p_sp8 sw_p_sp7 sw_p_sp6 sw_p_sp5 sw_p_sp4 sw_p_sp3 sw_p_sp2 sw_p_sp1 VSS sw_n8 sw_n7 sw_n6 sw_n5 sw_n4
++ sw_n3 sw_n2 sw_n1 Vsampled_p sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Vsampled_n dac
+x4 VDD V_in_p VSS V_in_n sw_sample Vsampled_p Vsampled_n bootstrapped_sampling_switch
+x5 VSS comp_out_p VDD comp_out_n Controller_clk xor_clock_gen
+.ends
+
+
+* expanding   symbol:  src/controller/controller.sym # of pins=14
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/controller/controller.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/controller/controller.sch
+.subckt controller VDD controller_clk VSS sw_n_sp9 sw_n_sp8 sw_n_sp7 sw_n_sp6 sw_n_sp5 sw_n_sp4
++ sw_n_sp3 sw_n_sp2 sw_n_sp1 clk sw_n8 sw_n7 sw_n6 sw_n5 sw_n4 sw_n3 sw_n2 sw_n1 reset Vcmp sw_p_sp9 sw_p_sp8
++ sw_p_sp7 sw_p_sp6 sw_p_sp5 sw_p_sp4 sw_p_sp3 sw_p_sp2 sw_p_sp1 sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2
++ sw_p1 bit10 bit9 bit8 bit7 bit6 bit5 bit4 bit3 bit2 bit1 done sw_sample comparator_clk
+*.ipin clk
+*.opin sw_n_sp9,sw_n_sp8,sw_n_sp7,sw_n_sp6,sw_n_sp5,sw_n_sp4,sw_n_sp3,sw_n_sp2,sw_n_sp1
+*.iopin VSS
+*.iopin VDD
+*.ipin reset
+*.ipin Vcmp
+*.opin sw_n8,sw_n7,sw_n6,sw_n5,sw_n4,sw_n3,sw_n2,sw_n1
+*.opin sw_p_sp9,sw_p_sp8,sw_p_sp7,sw_p_sp6,sw_p_sp5,sw_p_sp4,sw_p_sp3,sw_p_sp2,sw_p_sp1
+*.opin sw_p8,sw_p7,sw_p6,sw_p5,sw_p4,sw_p3,sw_p2,sw_p1
+*.opin bit10,bit9,bit8,bit7,bit6,bit5,bit4,bit3,bit2,bit1
+*.opin done
+*.opin sw_sample
+*.ipin controller_clk
+*.opin comparator_clk
+x3 VDD raw_bit13 raw_bit12 raw_bit11 raw_bit10 raw_bit9 raw_bit8 raw_bit7 raw_bit6 raw_bit5 raw_bit4
++ raw_bit3 raw_bit2 raw_bit1 VSS reset bit10 bit9 bit8 bit7 bit6 bit5 bit4 bit3 bit2 bit1 done cycle13 dec
+x4 raw_bit13 raw_bit12 raw_bit11 raw_bit10 raw_bit9 raw_bit8 raw_bit7 raw_bit6 raw_bit5 raw_bit4
++ raw_bit3 raw_bit2 raw_bit1 cycle12 cycle11 cycle10 cycle9 cycle8 cycle7 cycle6 cycle5 cycle4 cycle3 cycle2
++ cycle1 cycle0 sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Vcmp_buff raw_bit_calc_reset VDD VSS
++ sw_n_sp9 sw_n_sp8 sw_n_sp7 sw_n_sp6 sw_n_sp5 sw_n_sp4 sw_n_sp3 sw_n_sp2 sw_n_sp1 sw_n8 sw_n7 sw_n6 sw_n5
++ sw_n4 sw_n3 sw_n2 sw_n1 sw_p_sp9 sw_p_sp8 sw_p_sp7 sw_p_sp6 sw_p_sp5 sw_p_sp4 sw_p_sp3 sw_p_sp2 sw_p_sp1
++ raw_bit_calculator
+x1 VDD controller_clk sw_sample VSS reset cycle15 cycle14 cycle13 cycle12 cycle11 cycle10 cycle9
++ cycle8 cycle7 cycle6 cycle5 cycle4 cycle3 cycle2 cycle1 cycle0 shifted_clock_generator
+x2 net1 reset VSS VSS VDD VDD net6 sky130_fd_sc_hd__and2_1
+x6 cycle14 cycle15 VSS VSS VDD VDD net1 sky130_fd_sc_hd__xnor2_1
+x25 net3 VSS VSS VDD VDD Vcmp_buff sky130_fd_sc_hd__buf_16
+x26 Vcmp VSS VSS VDD VDD net2 sky130_fd_sc_hd__buf_4
+x27 net2 VSS VSS VDD VDD net3 sky130_fd_sc_hd__buf_8
+x28 net4 VSS VSS VDD VDD raw_bit_calc_reset sky130_fd_sc_hd__buf_16
+x29 net6 VSS VSS VDD VDD net5 sky130_fd_sc_hd__buf_4
+x30 net5 VSS VSS VDD VDD net4 sky130_fd_sc_hd__buf_8
+x5 VDD clk reset VSS sw_sample comparator_clk sample_clock
+.ends
+
+
+* expanding   symbol:  src/comparator/comparator.sym # of pins=7
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/comparator/comparator.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/comparator/comparator.sch
+.subckt comparator VDD VSS Vin_p Out_n Vin_n Out_p ext_clk
+*.iopin VDD
+*.iopin VSS
+*.ipin Vin_p
+*.opin Out_n
+*.ipin Vin_n
+*.opin Out_p
+*.ipin ext_clk
+XM1 Pre_Amp_p Clk_n VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=10 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM2 Pre_Amp_n Clk_n VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=10 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM3 Pre_Amp_n Vin_p net1 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=50 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM4 Pre_Amp_p Vin_n net1 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=50 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM5 net3 net5 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM6 net2 net4 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM9 net1 Clk VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=50 nf=5 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM11 net4 Clk_latch_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=4 m=4
+XM12 net4 net5 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM13 net5 net4 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM14 net5 Clk_latch_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=4 m=4
+XM7 net5 Pre_Amp_n net2 VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=8 m=8
+XM8 net4 Pre_Amp_p net3 VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=8 m=8
+XC1 Pre_Amp_p VSS sky130_fd_pr__cap_mim_m3_1 W=1 L=1 MF=1 m=1
+XC2 Pre_Amp_n VSS sky130_fd_pr__cap_mim_m3_1 W=1 L=1 MF=1 m=1
+x1 net4 VSS VSS VDD VDD net6 sky130_fd_sc_hd__buf_1
+x2 net6 VSS VSS VDD VDD net7 sky130_fd_sc_hd__buf_4
+x3 net7 VSS VSS VDD VDD Out_n sky130_fd_sc_hd__buf_8
+x4 net5 VSS VSS VDD VDD net8 sky130_fd_sc_hd__buf_1
+x5 net8 VSS VSS VDD VDD net9 sky130_fd_sc_hd__buf_4
+x6 net9 VSS VSS VDD VDD Out_p sky130_fd_sc_hd__buf_8
+XC3 net5 VSS sky130_fd_pr__cap_mim_m3_1 W=1 L=1 MF=1 m=1
+XC4 net4 VSS sky130_fd_pr__cap_mim_m3_1 W=1 L=1 MF=1 m=1
+x7 ext_clk VSS VSS VDD VDD net10 sky130_fd_sc_hd__buf_1
+x8 Clk_n VSS VSS VDD VDD net13 sky130_fd_sc_hd__clkdlybuf4s15_1
+x9 net11 VSS VSS VDD VDD Clk_latch_n sky130_fd_sc_hd__buf_2
+x10 net13 VSS VSS VDD VDD net14 sky130_fd_sc_hd__clkdlybuf4s15_1
+x11 net14 VSS VSS VDD VDD net11 sky130_fd_sc_hd__clkdlybuf4s50_1
+x13 Clk VSS VSS VDD VDD Clk_n sky130_fd_sc_hd__inv_2
+x12 net10 VSS VSS VDD VDD net12 sky130_fd_sc_hd__buf_2
+x14 net12 VSS VSS VDD VDD net15 sky130_fd_sc_hd__buf_4
+x15 net15 VSS VSS VDD VDD Clk sky130_fd_sc_hd__buf_8
+.ends
+
+
+* expanding   symbol:  src/dac/dac.sym # of pins=8
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dac/dac.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dac/dac.sch
+.subckt dac sw_sp_n9 sw_sp_n8 sw_sp_n7 sw_sp_n6 sw_sp_n5 sw_sp_n4 sw_sp_n3 sw_sp_n2 sw_sp_n1 VDD
++ sw_sp_p9 sw_sp_p8 sw_sp_p7 sw_sp_p6 sw_sp_p5 sw_sp_p4 sw_sp_p3 sw_sp_p2 sw_sp_p1 VSS sw_n8 sw_n7 sw_n6 sw_n5
++ sw_n4 sw_n3 sw_n2 sw_n1 Vin_p sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Vin_n
+*.iopin VDD
+*.ipin sw_sp_n9,sw_sp_n8,sw_sp_n7,sw_sp_n6,sw_sp_n5,sw_sp_n4,sw_sp_n3,sw_sp_n2,sw_sp_n1
+*.iopin VSS
+*.iopin Vin_p
+*.iopin Vin_n
+*.ipin sw_sp_p9,sw_sp_p8,sw_sp_p7,sw_sp_p6,sw_sp_p5,sw_sp_p4,sw_sp_p3,sw_sp_p2,sw_sp_p1
+*.ipin sw_n8,sw_n7,sw_n6,sw_n5,sw_n4,sw_n3,sw_n2,sw_n1
+*.ipin sw_p8,sw_p7,sw_p6,sw_p5,sw_p4,sw_p3,sw_p2,sw_p1
+x1 Vin_p cap_sp_n9 cap_sp_n8 cap_sp_n7 cap_sp_n6 cap_sp_n5 cap_sp_n4 cap_sp_n3 cap_sp_n2 cap_sp_n1
++ cap_sp_p9 cap_sp_p8 cap_sp_p7 cap_sp_p6 cap_sp_p5 cap_sp_p4 cap_sp_p3 cap_sp_p2 cap_sp_p1 Vin_n cap_p8 cap_p7
++ cap_p6 cap_p5 cap_p4 cap_p3 cap_p2 cap_p1 cap_n8 cap_n7 cap_n6 cap_n5 cap_n4 cap_n3 cap_n2 cap_n1
++ capacitor_array unit_cap_w=5 unit_cap_l=5
+x36 VDD VSS cap_sp_n1 sw_sp_n1 capacitor_switch16
+x37 VDD VSS cap_sp_n3 sw_sp_n3 capacitor_switch8
+x38 VDD VSS cap_sp_n5 sw_sp_n5 capacitor_switch4
+x39 VDD VSS cap_sp_n7 sw_sp_n7 capacitor_switch2
+x2 VDD VSS cap_sp_n2 sw_sp_n2 capacitor_switch16
+x3 VDD VSS cap_sp_p1 sw_sp_p1 capacitor_switch16
+x4 VDD VSS cap_sp_p2 sw_sp_p2 capacitor_switch16
+x5 VDD VSS cap_n1 sw_n1 capacitor_switch16
+x6 VDD VSS cap_n2 sw_n2 capacitor_switch16
+x7 VDD VSS cap_p1 sw_p1 capacitor_switch16
+x8 VDD VSS cap_p2 sw_p2 capacitor_switch16
+x9 VDD VSS cap_sp_n4 sw_sp_n4 capacitor_switch8
+x10 VDD VSS cap_sp_p3 sw_sp_p3 capacitor_switch8
+x11 VDD VSS cap_sp_p4 sw_sp_p4 capacitor_switch8
+x12 VDD VSS cap_n3 sw_n3 capacitor_switch8
+x13 VDD VSS cap_n4 sw_n4 capacitor_switch8
+x14 VDD VSS cap_p3 sw_p3 capacitor_switch8
+x15 VDD VSS cap_p4 sw_p4 capacitor_switch8
+x16 VDD VSS cap_sp_n6 sw_sp_n6 capacitor_switch4
+x17 VDD VSS cap_sp_p5 sw_sp_p5 capacitor_switch4
+x18 VDD VSS cap_sp_p6 sw_sp_p6 capacitor_switch4
+x19 VDD VSS cap_n5 sw_n5 capacitor_switch4
+x20 VDD VSS cap_p5 sw_p5 capacitor_switch4
+x21 VDD VSS cap_n6 sw_n6 capacitor_switch4
+x22 VDD VSS cap_p6 sw_p6 capacitor_switch4
+x23 VDD VSS cap_sp_n8 sw_sp_n8 capacitor_switch2
+x24 VDD VSS cap_sp_n9 sw_sp_n9 capacitor_switch2
+x25 VDD VSS cap_sp_p7 sw_sp_p7 capacitor_switch2
+x26 VDD VSS cap_sp_p8 sw_sp_p8 capacitor_switch2
+x28 VDD VSS cap_sp_p9 sw_sp_p9 capacitor_switch2
+x29 VDD VSS cap_n7 sw_n7 capacitor_switch2
+x30 VDD VSS cap_n8 sw_n8 capacitor_switch2
+x27 VDD VSS cap_p7 sw_p7 capacitor_switch2
+x31 VDD VSS cap_p8 sw_p8 capacitor_switch2
+.ends
+
+
+* expanding   symbol:  src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sym # of pins=7
+** sym_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sym
+** sch_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/bootstrapped_sampling_switch/bootstrapped_sampling_switch.sch
+.subckt bootstrapped_sampling_switch VDD Vin_p VSS Vin_n Clk Vout_p Vout_n
+*.iopin VDD
+*.ipin Vin_p
+*.opin Vout_p
+*.iopin VSS
+*.opin Vout_n
+*.ipin Vin_n
+*.ipin Clk
+XM1 net3 Clk_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=8 m=8
+XM2 net1 Clk VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM3 net1 Clk net3 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XC1 net2 net3 sky130_fd_pr__cap_mim_m3_1 W=30 L=30 MF=1 m=1
+XM4 net2 net4 VDD net2 sky130_fd_pr__pfet_01v8 L=0.15 W=5 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM5 net4 net1 net2 net2 sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM6 net1 net4 net3 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM7 Vin_p net4 net3 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM8 Vin_p net4 Vout_p VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=75 m=75
+XM9 net4 VDD net5 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=2 m=2
+XM10 net5 Clk_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+x1 Clk VSS VSS VDD VDD Clk_n sky130_fd_sc_hd__clkinv_1
+XM11 net8 Clk_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=8 m=8
+XM12 net6 Clk VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM13 net6 Clk net8 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XC2 net7 net8 sky130_fd_pr__cap_mim_m3_1 W=30 L=30 MF=1 m=1
+XM14 net7 net9 VDD net7 sky130_fd_pr__pfet_01v8 L=0.15 W=5 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM15 net9 net6 net7 net7 sky130_fd_pr__pfet_01v8 L=0.15 W=1.605 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM16 net6 net9 net8 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM17 Vin_n net9 net8 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+XM18 Vin_n net9 Vout_n VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=75 m=75
+XM19 net9 VDD net10 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=2 m=2
+XM20 net10 Clk_n VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.91 nf=1 ad='int((nf+1)/2) * W/nf * 0.29'
++ as='int((nf+2)/2) * W/nf * 0.29' pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)'
++ nrd='0.29 / W' nrs='0.29 / W' sa=0 sb=0 sd=0 mult=1 m=1
+.ends
+
+
+* expanding   symbol:  src/xor_clock_gen/xor_clock_gen.sym # of pins=5
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/xor_clock_gen/xor_clock_gen.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/xor_clock_gen/xor_clock_gen.sch
+.subckt xor_clock_gen VSS Vin_p VDD Vin_n Gen_clk
+*.ipin Vin_p
+*.iopin VSS
+*.opin Gen_clk
+*.iopin VDD
+*.ipin Vin_n
+x2 Vin_p Vin_n VSS VSS VDD VDD net1 sky130_fd_sc_hd__xor2_1
+x3 net1 VSS VSS VDD VDD net2 sky130_fd_sc_hd__clkdlybuf4s50_1
+x17 net2 VSS VSS VDD VDD net3 sky130_fd_sc_hd__clkdlybuf4s50_1
+x9 net11 VSS VSS VDD VDD net4 sky130_fd_sc_hd__clkbuf_1
+x14 net4 VSS VSS VDD VDD net5 sky130_fd_sc_hd__clkbuf_2
+x19 net5 VSS VSS VDD VDD net6 sky130_fd_sc_hd__clkbuf_4
+x26 net6 VSS VSS VDD VDD net7 sky130_fd_sc_hd__clkbuf_8
+x27 net7 VSS VSS VDD VDD Gen_clk sky130_fd_sc_hd__clkbuf_16
+XC1 net7 VSS sky130_fd_pr__cap_mim_m3_1 W=5 L=5 MF=3 m=3
+x1 net3 VSS VSS VDD VDD net9 sky130_fd_sc_hd__clkdlybuf4s50_1
+x4 net9 VSS VSS VDD VDD net8 sky130_fd_sc_hd__clkdlybuf4s50_1
+x5 net8 VSS VSS VDD VDD net10 sky130_fd_sc_hd__clkdlybuf4s50_1
+x6 net10 VSS VSS VDD VDD net11 sky130_fd_sc_hd__clkdlybuf4s50_1
+.ends
+
+
+* expanding   symbol:  src/dec/dec.sym # of pins=7
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dec/dec.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/dec/dec.sch
+.subckt dec VDD raw_bit13 raw_bit12 raw_bit11 raw_bit10 raw_bit9 raw_bit8 raw_bit7 raw_bit6 raw_bit5
++ raw_bit4 raw_bit3 raw_bit2 raw_bit1 VSS reset_b bit10 bit9 bit8 bit7 bit6 bit5 bit4 bit3 bit2 bit1 done
++ dump_bus
+*.iopin VDD
+*.opin bit10,bit9,bit8,bit7,bit6,bit5,bit4,bit3,bit2,bit1
+*.iopin VSS
+*.ipin reset_b
+*.ipin dump_bus
+*.opin done
+*.ipin
+*+ raw_bit13,raw_bit12,raw_bit11,raw_bit10,raw_bit9,raw_bit8,raw_bit7,raw_bit6,raw_bit5,raw_bit4,raw_bit3,raw_bit2,raw_bit1
+x62 raw_bit2 raw_bit1 net1 VSS VSS VDD VDD net16 net2 sky130_fd_sc_hd__fa_1
+x64 raw_bit3 raw_bit1 net4 VSS VSS VDD VDD net1 net3 sky130_fd_sc_hd__fa_1
+x67 dump_bus net2 reset_b VSS VSS VDD VDD bit2 sky130_fd_sc_hd__dfrtp_1
+x68 dump_bus net3 reset_b VSS VSS VDD VDD bit3 sky130_fd_sc_hd__dfrtp_1
+x65 raw_bit5 raw_bit4 net5 VSS VSS VDD VDD net4 net6 sky130_fd_sc_hd__fa_1
+x69 raw_bit6 raw_bit4 net8 VSS VSS VDD VDD net5 net7 sky130_fd_sc_hd__fa_1
+x70 dump_bus net6 reset_b VSS VSS VDD VDD bit4 sky130_fd_sc_hd__dfrtp_1
+x71 dump_bus net7 reset_b VSS VSS VDD VDD bit5 sky130_fd_sc_hd__dfrtp_1
+x72 raw_bit7 raw_bit4 net9 VSS VSS VDD VDD net8 net10 sky130_fd_sc_hd__fa_1
+x73 raw_bit9 raw_bit8 net12 VSS VSS VDD VDD net9 net11 sky130_fd_sc_hd__fa_1
+x74 dump_bus net10 reset_b VSS VSS VDD VDD bit6 sky130_fd_sc_hd__dfrtp_1
+x75 dump_bus net11 reset_b VSS VSS VDD VDD bit7 sky130_fd_sc_hd__dfrtp_1
+x76 raw_bit10 raw_bit8 net13 VSS VSS VDD VDD net12 net14 sky130_fd_sc_hd__fa_1
+x77 raw_bit11 raw_bit8 raw_bit12 VSS VSS VDD VDD net13 net15 sky130_fd_sc_hd__fa_1
+x78 dump_bus net14 reset_b VSS VSS VDD VDD bit8 sky130_fd_sc_hd__dfrtp_1
+x79 dump_bus net15 reset_b VSS VSS VDD VDD bit9 sky130_fd_sc_hd__dfrtp_1
+x80 dump_bus net16 reset_b VSS VSS VDD VDD bit1 sky130_fd_sc_hd__dfrtp_1
+x81 dump_bus raw_bit13 reset_b VSS VSS VDD VDD bit10 sky130_fd_sc_hd__dfrtp_1
+x82 dump_bus VSS VSS VDD VDD done sky130_fd_sc_hd__inv_1
+.ends
+
+
+* expanding   symbol:  src/raw_bit_calculator/raw_bit_calculator.sym # of pins=10
+** sym_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/raw_bit_calculator/raw_bit_calculator.sym
+** sch_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/raw_bit_calculator/raw_bit_calculator.sch
+.subckt raw_bit_calculator raw_bit13 raw_bit12 raw_bit11 raw_bit10 raw_bit9 raw_bit8 raw_bit7
++ raw_bit6 raw_bit5 raw_bit4 raw_bit3 raw_bit2 raw_bit1 cycle13 cycle12 cycle11 cycle10 cycle9 cycle8 cycle7
++ cycle6 cycle5 cycle4 cycle3 cycle2 cycle1 sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 Vcmp RESET VDD
++ VSS sw_n_sp9 sw_n_sp8 sw_n_sp7 sw_n_sp6 sw_n_sp5 sw_n_sp4 sw_n_sp3 sw_n_sp2 sw_n_sp1 sw_n8 sw_n7 sw_n6
++ sw_n5 sw_n4 sw_n3 sw_n2 sw_n1 sw_p_sp9 sw_p_sp8 sw_p_sp7 sw_p_sp6 sw_p_sp5 sw_p_sp4 sw_p_sp3 sw_p_sp2
++ sw_p_sp1
+*.ipin
+*+ cycle13,cycle12,cycle11,cycle10,cycle9,cycle8,cycle7,cycle6,cycle5,cycle4,cycle3,cycle2,cycle1
+*.opin sw_n_sp9,sw_n_sp8,sw_n_sp7,sw_n_sp6,sw_n_sp5,sw_n_sp4,sw_n_sp3,sw_n_sp2,sw_n_sp1
+*.iopin VSS
+*.iopin VDD
+*.opin sw_n8,sw_n7,sw_n6,sw_n5,sw_n4,sw_n3,sw_n2,sw_n1
+*.opin sw_p_sp9,sw_p_sp8,sw_p_sp7,sw_p_sp6,sw_p_sp5,sw_p_sp4,sw_p_sp3,sw_p_sp2,sw_p_sp1
+*.opin sw_p8,sw_p7,sw_p6,sw_p5,sw_p4,sw_p3,sw_p2,sw_p1
+*.ipin Vcmp
+*.ipin RESET
+*.opin
+*+ raw_bit13,raw_bit12,raw_bit11,raw_bit10,raw_bit9,raw_bit8,raw_bit7,raw_bit6,raw_bit5,raw_bit4,raw_bit3,raw_bit2,raw_bit1
+x29 raw_bit1 Vcmp VSS VSS VDD VDD net58 sky130_fd_sc_hd__xor2_1
+x31 raw_bit1 Vcmp VSS VSS VDD VDD net62 sky130_fd_sc_hd__xor2_1
+x37 raw_bit4 Vcmp VSS VSS VDD VDD net52 sky130_fd_sc_hd__xor2_1
+x40 raw_bit4 Vcmp VSS VSS VDD VDD net53 sky130_fd_sc_hd__xor2_1
+x45 raw_bit4 Vcmp VSS VSS VDD VDD net54 sky130_fd_sc_hd__xor2_1
+x100 cycle1 net11 net23 VSS VSS VDD VDD sw_p_sp1 sky130_fd_sc_hd__dfrtp_1
+x99 Vcmp VSS VSS VDD VDD net11 sky130_fd_sc_hd__inv_1
+x102 cycle1 Vcmp net23 VSS VSS VDD VDD sw_n_sp1 sky130_fd_sc_hd__dfrtp_1
+x25 cycle1 Vcmp net25 VSS VSS VDD VDD sw_n_sp2 sky130_fd_sc_hd__dfrtp_1
+x103 Vcmp VSS VSS VDD VDD net12 sky130_fd_sc_hd__inv_1
+x104 cycle1 net12 net25 VSS VSS VDD VDD sw_p_sp2 sky130_fd_sc_hd__dfrtp_1
+x21 net1 Vcmp RESET VSS VSS VDD VDD sw_n1 sky130_fd_sc_hd__dfstp_1
+x22 net1 net13 RESET VSS VSS VDD VDD sw_p1 sky130_fd_sc_hd__dfstp_1
+x105 Vcmp VSS VSS VDD VDD net13 sky130_fd_sc_hd__inv_1
+x28 net4 Vcmp RESET VSS VSS VDD VDD sw_n2 sky130_fd_sc_hd__dfstp_1
+x106 net4 net14 RESET VSS VSS VDD VDD sw_p2 sky130_fd_sc_hd__dfstp_1
+x107 Vcmp VSS VSS VDD VDD net14 sky130_fd_sc_hd__inv_1
+x109 Vcmp VSS VSS VDD VDD net15 sky130_fd_sc_hd__inv_1
+x111 Vcmp VSS VSS VDD VDD net16 sky130_fd_sc_hd__inv_1
+x27 cycle4 Vcmp net27 VSS VSS VDD VDD sw_n_sp3 sky130_fd_sc_hd__dfrtp_1
+x35 cycle4 net15 net27 VSS VSS VDD VDD sw_p_sp3 sky130_fd_sc_hd__dfrtp_1
+x41 cycle4 Vcmp net28 VSS VSS VDD VDD sw_n_sp4 sky130_fd_sc_hd__dfrtp_1
+x108 cycle4 net16 net28 VSS VSS VDD VDD sw_p_sp4 sky130_fd_sc_hd__dfrtp_1
+x110 cycle4 Vcmp net29 VSS VSS VDD VDD sw_n_sp5 sky130_fd_sc_hd__dfrtp_1
+x112 cycle4 net17 net29 VSS VSS VDD VDD sw_p_sp5 sky130_fd_sc_hd__dfrtp_1
+x113 Vcmp VSS VSS VDD VDD net17 sky130_fd_sc_hd__inv_1
+x114 net6 net18 RESET VSS VSS VDD VDD sw_p3 sky130_fd_sc_hd__dfstp_1
+x32 net6 Vcmp RESET VSS VSS VDD VDD sw_n3 sky130_fd_sc_hd__dfstp_1
+x115 Vcmp VSS VSS VDD VDD net18 sky130_fd_sc_hd__inv_1
+x38 net7 Vcmp RESET VSS VSS VDD VDD sw_n4 sky130_fd_sc_hd__dfstp_1
+x116 net7 net19 RESET VSS VSS VDD VDD sw_p4 sky130_fd_sc_hd__dfstp_1
+x117 Vcmp VSS VSS VDD VDD net19 sky130_fd_sc_hd__inv_1
+x43 net8 Vcmp RESET VSS VSS VDD VDD sw_n5 sky130_fd_sc_hd__dfstp_1
+x118 net8 net20 RESET VSS VSS VDD VDD sw_p5 sky130_fd_sc_hd__dfstp_1
+x119 Vcmp VSS VSS VDD VDD net20 sky130_fd_sc_hd__inv_1
+x132 cycle12 net21 RESET VSS VSS VDD VDD sw_p_sp9 sky130_fd_sc_hd__dfrtp_1
+x133 Vcmp VSS VSS VDD VDD net21 sky130_fd_sc_hd__inv_1
+x61 cycle12 Vcmp RESET VSS VSS VDD VDD sw_n_sp9 sky130_fd_sc_hd__dfrtp_1
+x24 net51 VDD VSS net1 net3 net2 demux2
+x30 net61 VDD VSS net4 net60 net5 demux2
+x34 net65 VDD VSS net6 net64 net22 demux2
+x39 net68 VDD VSS net7 net67 net9 demux2
+x44 net71 VDD VSS net8 net70 net10 demux2
+x1 net2 VSS VSS VDD VDD net24 sky130_fd_sc_hd__inv_1
+x2 net5 VSS VSS VDD VDD net26 sky130_fd_sc_hd__inv_1
+x3 cycle1 Vcmp RESET VSS VSS VDD VDD raw_bit1 sky130_fd_sc_hd__dfrtp_4
+x4 cycle2 Vcmp RESET VSS VSS VDD VDD raw_bit2 sky130_fd_sc_hd__dfrtp_4
+x5 cycle3 Vcmp RESET VSS VSS VDD VDD raw_bit3 sky130_fd_sc_hd__dfrtp_4
+x6 cycle4 Vcmp RESET VSS VSS VDD VDD raw_bit4 sky130_fd_sc_hd__dfrtp_4
+x7 cycle5 Vcmp RESET VSS VSS VDD VDD raw_bit5 sky130_fd_sc_hd__dfrtp_4
+x8 cycle6 Vcmp RESET VSS VSS VDD VDD raw_bit6 sky130_fd_sc_hd__dfrtp_4
+x9 cycle7 Vcmp RESET VSS VSS VDD VDD raw_bit7 sky130_fd_sc_hd__dfrtp_4
+x10 cycle8 Vcmp RESET VSS VSS VDD VDD raw_bit8 sky130_fd_sc_hd__dfrtp_4
+x11 cycle9 Vcmp RESET VSS VSS VDD VDD raw_bit9 sky130_fd_sc_hd__dfrtp_4
+x12 cycle10 Vcmp RESET VSS VSS VDD VDD raw_bit10 sky130_fd_sc_hd__dfrtp_4
+x13 cycle11 Vcmp RESET VSS VSS VDD VDD raw_bit11 sky130_fd_sc_hd__dfrtp_4
+x14 cycle12 Vcmp RESET VSS VSS VDD VDD raw_bit12 sky130_fd_sc_hd__dfrtp_4
+x15 cycle13 Vcmp RESET VSS VSS VDD VDD raw_bit13 sky130_fd_sc_hd__dfrtp_4
+x18 net22 VSS VSS VDD VDD net30 sky130_fd_sc_hd__inv_1
+x19 net9 VSS VSS VDD VDD net31 sky130_fd_sc_hd__inv_1
+x20 net10 VSS VSS VDD VDD net32 sky130_fd_sc_hd__inv_1
+x42 raw_bit8 Vcmp VSS VSS VDD VDD net55 sky130_fd_sc_hd__xor2_1
+x62 raw_bit8 Vcmp VSS VSS VDD VDD net56 sky130_fd_sc_hd__xor2_1
+x64 raw_bit8 Vcmp VSS VSS VDD VDD net57 sky130_fd_sc_hd__xor2_1
+x65 Vcmp VSS VSS VDD VDD net38 sky130_fd_sc_hd__inv_1
+x66 Vcmp VSS VSS VDD VDD net39 sky130_fd_sc_hd__inv_1
+x67 cycle8 Vcmp net45 VSS VSS VDD VDD sw_n_sp6 sky130_fd_sc_hd__dfrtp_1
+x68 cycle8 net38 net45 VSS VSS VDD VDD sw_p_sp6 sky130_fd_sc_hd__dfrtp_1
+x69 cycle8 Vcmp net46 VSS VSS VDD VDD sw_n_sp7 sky130_fd_sc_hd__dfrtp_1
+x70 cycle8 net39 net46 VSS VSS VDD VDD sw_p_sp7 sky130_fd_sc_hd__dfrtp_1
+x71 cycle8 Vcmp net47 VSS VSS VDD VDD sw_n_sp8 sky130_fd_sc_hd__dfrtp_1
+x72 cycle8 net40 net47 VSS VSS VDD VDD sw_p_sp8 sky130_fd_sc_hd__dfrtp_1
+x73 Vcmp VSS VSS VDD VDD net40 sky130_fd_sc_hd__inv_1
+x74 net33 net41 RESET VSS VSS VDD VDD sw_p6 sky130_fd_sc_hd__dfstp_1
+x75 net33 Vcmp RESET VSS VSS VDD VDD sw_n6 sky130_fd_sc_hd__dfstp_1
+x76 Vcmp VSS VSS VDD VDD net41 sky130_fd_sc_hd__inv_1
+x77 net34 Vcmp RESET VSS VSS VDD VDD sw_n7 sky130_fd_sc_hd__dfstp_1
+x78 net34 net42 RESET VSS VSS VDD VDD sw_p7 sky130_fd_sc_hd__dfstp_1
+x79 Vcmp VSS VSS VDD VDD net42 sky130_fd_sc_hd__inv_1
+x80 net35 Vcmp RESET VSS VSS VDD VDD sw_n8 sky130_fd_sc_hd__dfstp_1
+x81 net35 net43 RESET VSS VSS VDD VDD sw_p8 sky130_fd_sc_hd__dfstp_1
+x82 Vcmp VSS VSS VDD VDD net43 sky130_fd_sc_hd__inv_1
+x83 net74 VDD VSS net33 net73 net44 demux2
+x84 net77 VDD VSS net34 net76 net36 demux2
+x85 net80 VDD VSS net35 net79 net37 demux2
+x88 net44 VSS VSS VDD VDD net48 sky130_fd_sc_hd__inv_1
+x89 net36 VSS VSS VDD VDD net49 sky130_fd_sc_hd__inv_1
+x90 net37 VSS VSS VDD VDD net50 sky130_fd_sc_hd__inv_1
+x46 net24 RESET VSS VSS VDD VDD net23 sky130_fd_sc_hd__and2_0
+x23 net26 RESET VSS VSS VDD VDD net25 sky130_fd_sc_hd__and2_0
+x26 net30 RESET VSS VSS VDD VDD net27 sky130_fd_sc_hd__and2_0
+x16 net31 RESET VSS VSS VDD VDD net28 sky130_fd_sc_hd__and2_0
+x17 net32 RESET VSS VSS VDD VDD net29 sky130_fd_sc_hd__and2_0
+x33 net48 RESET VSS VSS VDD VDD net45 sky130_fd_sc_hd__and2_0
+x36 net49 RESET VSS VSS VDD VDD net46 sky130_fd_sc_hd__and2_0
+x47 net50 RESET VSS VSS VDD VDD net47 sky130_fd_sc_hd__and2_0
+x48 cycle2 net58 RESET VSS VSS VDD VDD net51 sky130_fd_sc_hd__dfrtp_1
+x49 net59 VSS VSS VDD VDD net3 sky130_fd_sc_hd__clkdlybuf4s50_1
+x50 cycle2 VSS VSS VDD VDD net59 sky130_fd_sc_hd__clkdlybuf4s50_1
+x51 cycle3 net62 RESET VSS VSS VDD VDD net61 sky130_fd_sc_hd__dfrtp_1
+x52 net63 VSS VSS VDD VDD net60 sky130_fd_sc_hd__clkdlybuf4s50_1
+x53 cycle3 VSS VSS VDD VDD net63 sky130_fd_sc_hd__clkdlybuf4s50_1
+x54 cycle5 net52 RESET VSS VSS VDD VDD net65 sky130_fd_sc_hd__dfrtp_1
+x55 net66 VSS VSS VDD VDD net64 sky130_fd_sc_hd__clkdlybuf4s50_1
+x56 cycle5 VSS VSS VDD VDD net66 sky130_fd_sc_hd__clkdlybuf4s50_1
+x57 cycle6 net53 RESET VSS VSS VDD VDD net68 sky130_fd_sc_hd__dfrtp_1
+x58 net69 VSS VSS VDD VDD net67 sky130_fd_sc_hd__clkdlybuf4s50_1
+x59 cycle6 VSS VSS VDD VDD net69 sky130_fd_sc_hd__clkdlybuf4s50_1
+x60 cycle7 net54 RESET VSS VSS VDD VDD net71 sky130_fd_sc_hd__dfrtp_1
+x63 net72 VSS VSS VDD VDD net70 sky130_fd_sc_hd__clkdlybuf4s50_1
+x86 cycle7 VSS VSS VDD VDD net72 sky130_fd_sc_hd__clkdlybuf4s50_1
+x87 cycle9 net55 RESET VSS VSS VDD VDD net74 sky130_fd_sc_hd__dfrtp_1
+x91 net75 VSS VSS VDD VDD net73 sky130_fd_sc_hd__clkdlybuf4s50_1
+x92 cycle9 VSS VSS VDD VDD net75 sky130_fd_sc_hd__clkdlybuf4s50_1
+x93 cycle10 net56 RESET VSS VSS VDD VDD net77 sky130_fd_sc_hd__dfrtp_1
+x94 net78 VSS VSS VDD VDD net76 sky130_fd_sc_hd__clkdlybuf4s50_1
+x95 cycle10 VSS VSS VDD VDD net78 sky130_fd_sc_hd__clkdlybuf4s50_1
+x96 cycle11 net57 RESET VSS VSS VDD VDD net80 sky130_fd_sc_hd__dfrtp_1
+x97 net81 VSS VSS VDD VDD net79 sky130_fd_sc_hd__clkdlybuf4s50_1
+x98 cycle11 VSS VSS VDD VDD net81 sky130_fd_sc_hd__clkdlybuf4s50_1
+.ends
+
+
+* expanding   symbol:  src/shifted_clock_generator/shifted_clock_generator.sym # of pins=6
+** sym_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/shifted_clock_generator/shifted_clock_generator.sym
+** sch_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/shifted_clock_generator/shifted_clock_generator.sch
+.subckt shifted_clock_generator VDD clk sw_sample VSS reset cycle15 cycle14 cycle13 cycle12 cycle11
++ cycle10 cycle9 cycle8 cycle7 cycle6 cycle5 cycle4 cycle3 cycle2 cycle1 cycle0
+*.opin
+*+ cycle15,cycle14,cycle13,cycle12,cycle11,cycle10,cycle9,cycle8,cycle7,cycle6,cycle5,cycle4,cycle3,cycle2,cycle1,cycle0
+*.iopin VSS
+*.iopin VDD
+*.ipin clk
+*.ipin reset
+*.ipin sw_sample
+x32 net16 net17 reset_b VSS VSS VDD VDD net4 sky130_fd_sc_hd__dfrtp_1
+x1 net5 net4 reset_b VSS VSS VDD VDD net18 sky130_fd_sc_hd__dfrtp_1
+x2 net6 net18 reset_b VSS VSS VDD VDD net19 sky130_fd_sc_hd__dfrtp_1
+x3 net7 net19 reset_b VSS VSS VDD VDD net20 sky130_fd_sc_hd__dfrtp_1
+x4 net8 net20 reset_b VSS VSS VDD VDD net21 sky130_fd_sc_hd__dfrtp_1
+x5 net9 net21 reset_b VSS VSS VDD VDD net22 sky130_fd_sc_hd__dfrtp_1
+x6 net10 net22 reset_b VSS VSS VDD VDD net23 sky130_fd_sc_hd__dfrtp_1
+x7 net11 net23 reset_b VSS VSS VDD VDD net24 sky130_fd_sc_hd__dfrtp_1
+x8 net12 net24 reset_b VSS VSS VDD VDD net25 sky130_fd_sc_hd__dfrtp_1
+x9 net13 net25 reset_b VSS VSS VDD VDD net26 sky130_fd_sc_hd__dfrtp_1
+x10 net14 net26 reset_b VSS VSS VDD VDD net27 sky130_fd_sc_hd__dfrtp_1
+x11 net15 net27 reset_b VSS VSS VDD VDD net28 sky130_fd_sc_hd__dfrtp_1
+x12 net3 net28 reset_b VSS VSS VDD VDD net29 sky130_fd_sc_hd__dfrtp_1
+x13 net1 net29 reset_b VSS VSS VDD VDD net30 sky130_fd_sc_hd__dfrtp_1
+x14 net2 net30 reset_b VSS VSS VDD VDD net31 sky130_fd_sc_hd__dfrtp_1
+x31 net32 net33 reset_b VSS VSS VDD VDD net17 sky130_fd_sc_hd__dfrtp_1
+x37 net35 VSS VSS VDD VDD reset_b sky130_fd_sc_hd__buf_16
+x35 net34 reset VSS VSS VDD VDD net35 sky130_fd_sc_hd__and2_4
+x15 net17 VSS VSS VDD VDD net46 sky130_fd_sc_hd__buf_1
+x16 net44 VSS VSS VDD VDD net36 sky130_fd_sc_hd__buf_2
+x20 net44 VSS VSS VDD VDD net37 sky130_fd_sc_hd__buf_2
+x21 net44 VSS VSS VDD VDD net38 sky130_fd_sc_hd__buf_2
+x22 net44 VSS VSS VDD VDD net39 sky130_fd_sc_hd__buf_2
+x23 net45 VSS VSS VDD VDD net40 sky130_fd_sc_hd__buf_2
+x24 net45 VSS VSS VDD VDD net41 sky130_fd_sc_hd__buf_2
+x25 net45 VSS VSS VDD VDD net42 sky130_fd_sc_hd__buf_2
+x26 net45 VSS VSS VDD VDD net43 sky130_fd_sc_hd__buf_2
+x27 clk VSS VSS VDD VDD net44 sky130_fd_sc_hd__buf_4
+x28 clk VSS VSS VDD VDD net45 sky130_fd_sc_hd__buf_4
+x17 net36 VSS VSS VDD VDD net32 sky130_fd_sc_hd__buf_1
+x18 net36 VSS VSS VDD VDD net16 sky130_fd_sc_hd__buf_1
+x19 net37 VSS VSS VDD VDD net5 sky130_fd_sc_hd__buf_1
+x29 net37 VSS VSS VDD VDD net6 sky130_fd_sc_hd__buf_1
+x30 net38 VSS VSS VDD VDD net7 sky130_fd_sc_hd__buf_1
+x33 net38 VSS VSS VDD VDD net8 sky130_fd_sc_hd__buf_1
+x47 net39 VSS VSS VDD VDD net9 sky130_fd_sc_hd__buf_1
+x48 net39 VSS VSS VDD VDD net10 sky130_fd_sc_hd__buf_1
+x51 net40 VSS VSS VDD VDD net11 sky130_fd_sc_hd__buf_1
+x52 net40 VSS VSS VDD VDD net12 sky130_fd_sc_hd__buf_1
+x53 net41 VSS VSS VDD VDD net13 sky130_fd_sc_hd__buf_1
+x54 net41 VSS VSS VDD VDD net14 sky130_fd_sc_hd__buf_1
+x55 net42 VSS VSS VDD VDD net15 sky130_fd_sc_hd__buf_1
+x56 net42 VSS VSS VDD VDD net3 sky130_fd_sc_hd__buf_1
+x57 net43 VSS VSS VDD VDD net1 sky130_fd_sc_hd__buf_1
+x58 net43 VSS VSS VDD VDD net2 sky130_fd_sc_hd__buf_1
+x62 net4 VSS VSS VDD VDD net47 sky130_fd_sc_hd__buf_1
+x66 net18 VSS VSS VDD VDD net48 sky130_fd_sc_hd__buf_1
+x70 net19 VSS VSS VDD VDD net49 sky130_fd_sc_hd__buf_1
+x34 sw_sample VSS VSS VDD VDD net34 sky130_fd_sc_hd__inv_1
+x36 VDD VSS VSS VDD VDD net33 sky130_fd_sc_hd__buf_1
+x38 net46 VSS VSS VDD VDD cycle0 sky130_fd_sc_hd__buf_4
+x39 net47 VSS VSS VDD VDD cycle1 sky130_fd_sc_hd__buf_4
+x40 net48 VSS VSS VDD VDD cycle2 sky130_fd_sc_hd__buf_4
+x41 net49 VSS VSS VDD VDD cycle3 sky130_fd_sc_hd__buf_4
+x42 net20 VSS VSS VDD VDD net50 sky130_fd_sc_hd__buf_1
+x43 net21 VSS VSS VDD VDD net51 sky130_fd_sc_hd__buf_1
+x44 net22 VSS VSS VDD VDD net52 sky130_fd_sc_hd__buf_1
+x45 net23 VSS VSS VDD VDD net53 sky130_fd_sc_hd__buf_1
+x46 net50 VSS VSS VDD VDD cycle4 sky130_fd_sc_hd__buf_4
+x49 net51 VSS VSS VDD VDD cycle5 sky130_fd_sc_hd__buf_4
+x50 net52 VSS VSS VDD VDD cycle6 sky130_fd_sc_hd__buf_4
+x59 net53 VSS VSS VDD VDD cycle7 sky130_fd_sc_hd__buf_4
+x60 net24 VSS VSS VDD VDD net54 sky130_fd_sc_hd__buf_1
+x61 net25 VSS VSS VDD VDD net55 sky130_fd_sc_hd__buf_1
+x63 net26 VSS VSS VDD VDD net56 sky130_fd_sc_hd__buf_1
+x64 net27 VSS VSS VDD VDD net57 sky130_fd_sc_hd__buf_1
+x65 net54 VSS VSS VDD VDD cycle8 sky130_fd_sc_hd__buf_4
+x67 net55 VSS VSS VDD VDD cycle9 sky130_fd_sc_hd__buf_4
+x68 net56 VSS VSS VDD VDD cycle10 sky130_fd_sc_hd__buf_4
+x69 net57 VSS VSS VDD VDD cycle11 sky130_fd_sc_hd__buf_4
+x71 net28 VSS VSS VDD VDD net58 sky130_fd_sc_hd__buf_1
+x72 net29 VSS VSS VDD VDD net59 sky130_fd_sc_hd__buf_1
+x73 net30 VSS VSS VDD VDD net60 sky130_fd_sc_hd__buf_1
+x74 net31 VSS VSS VDD VDD net61 sky130_fd_sc_hd__buf_1
+x75 net58 VSS VSS VDD VDD cycle12 sky130_fd_sc_hd__buf_4
+x76 net59 VSS VSS VDD VDD cycle13 sky130_fd_sc_hd__buf_4
+x77 net60 VSS VSS VDD VDD cycle14 sky130_fd_sc_hd__buf_4
+x78 net61 VSS VSS VDD VDD cycle15 sky130_fd_sc_hd__buf_4
+.ends
+
+
+* expanding   symbol:  src/sample_clock/sample_clock.sym # of pins=6
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sample_clock/sample_clock.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/sample_clock/sample_clock.sch
+.subckt sample_clock VDD clk reset VSS sw_sample comparator_clk
+*.iopin VDD
+*.ipin clk
+*.opin sw_sample
+*.iopin VSS
+*.opin comparator_clk
+*.ipin reset
+x5 clk johnson_counter_loop reset VSS VSS VDD VDD net1 sky130_fd_sc_hd__dfrtp_1
+x7 clk net1 reset VSS VSS VDD VDD net2 sky130_fd_sc_hd__dfrtp_1
+x8 clk net2 reset VSS VSS VDD VDD net3 sky130_fd_sc_hd__dfrtp_1
+x9 clk net3 reset VSS VSS VDD VDD net4 sky130_fd_sc_hd__dfrtp_1
+x10 clk net4 reset VSS VSS VDD VDD net5 sky130_fd_sc_hd__dfrtp_1
+x11 clk net5 reset VSS VSS VDD VDD net6 sky130_fd_sc_hd__dfrtp_1
+x12 clk net6 reset VSS VSS VDD VDD net7 sky130_fd_sc_hd__dfrtp_1
+x13 clk net7 reset VSS VSS VDD VDD some_net sky130_fd_sc_hd__dfrtp_1
+x14 clk some_net reset VSS VSS VDD VDD net8 sky130_fd_sc_hd__dfrtp_1
+x15 clk net8 reset VSS VSS VDD VDD net9 sky130_fd_sc_hd__dfrtp_1
+x16 clk net9 reset VSS VSS VDD VDD net10 sky130_fd_sc_hd__dfrtp_1
+x17 clk net10 reset VSS VSS VDD VDD net11 sky130_fd_sc_hd__dfrtp_1
+x18 clk net11 reset VSS VSS VDD VDD net12 sky130_fd_sc_hd__dfrtp_1
+x19 clk net12 reset VSS VSS VDD VDD net13 sky130_fd_sc_hd__dfrtp_1
+x20 clk net13 reset VSS VSS VDD VDD net14 sky130_fd_sc_hd__dfrtp_1
+x21 clk net14 reset VSS VSS VDD VDD net15 sky130_fd_sc_hd__dfrtp_1
+x22 net15 VSS VSS VDD VDD johnson_counter_loop sky130_fd_sc_hd__inv_1
+x23 net17 net16 VSS VSS VDD VDD net20 sky130_fd_sc_hd__and2_1
+x24 sw_sample VSS VSS VDD VDD net16 sky130_fd_sc_hd__inv_1
+x25 net19 VSS VSS VDD VDD comparator_clk sky130_fd_sc_hd__buf_16
+x26 net21 VSS VSS VDD VDD net18 sky130_fd_sc_hd__buf_4
+x27 net18 VSS VSS VDD VDD net19 sky130_fd_sc_hd__buf_8
+x1 net20 VSS VSS VDD VDD net21 sky130_fd_sc_hd__buf_2
+x2 net23 VSS VSS VDD VDD net22 sky130_fd_sc_hd__buf_4
+x3 net22 VSS VSS VDD VDD sw_sample sky130_fd_sc_hd__buf_8
+x4 net1 VSS VSS VDD VDD net23 sky130_fd_sc_hd__buf_2
+x6 net24 VSS VSS VDD VDD net17 sky130_fd_sc_hd__clkdlybuf4s50_1
+x28 clk VSS VSS VDD VDD net24 sky130_fd_sc_hd__clkdlybuf4s50_1
+.ends
+
+
+* expanding   symbol:  src/capacitor_array/capacitor_array.sym # of pins=6
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_array/capacitor_array.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_array/capacitor_array.sch
+.subckt capacitor_array Vin_p sw_sp_n9 sw_sp_n8 sw_sp_n7 sw_sp_n6 sw_sp_n5 sw_sp_n4 sw_sp_n3
++ sw_sp_n2 sw_sp_n1 sw_sp_p9 sw_sp_p8 sw_sp_p7 sw_sp_p6 sw_sp_p5 sw_sp_p4 sw_sp_p3 sw_sp_p2 sw_sp_p1 Vin_n
++ sw_p8 sw_p7 sw_p6 sw_p5 sw_p4 sw_p3 sw_p2 sw_p1 sw_n8 sw_n7 sw_n6 sw_n5 sw_n4 sw_n3 sw_n2 sw_n1
++   unit_cap_w=25 unit_cap_l=25
+*.ipin sw_sp_n9,sw_sp_n8,sw_sp_n7,sw_sp_n6,sw_sp_n5,sw_sp_n4,sw_sp_n3,sw_sp_n2,sw_sp_n1
+*.iopin Vin_p
+*.iopin Vin_n
+*.ipin sw_sp_p9,sw_sp_p8,sw_sp_p7,sw_sp_p6,sw_sp_p5,sw_sp_p4,sw_sp_p3,sw_sp_p2,sw_sp_p1
+*.ipin sw_p8,sw_p7,sw_p6,sw_p5,sw_p4,sw_p3,sw_p2,sw_p1
+*.ipin sw_n8,sw_n7,sw_n6,sw_n5,sw_n4,sw_n3,sw_n2,sw_n1
+XC1 Vin_n sw_sp_n1 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=128 m=128
+XC2 Vin_n sw_sp_n2 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=64 m=64
+XC3 Vin_n sw_n1 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=128 m=128
+XC4 Vin_n sw_n2 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=64 m=64
+XC5 Vin_n sw_sp_n3 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=32 m=32
+XC6 Vin_n sw_sp_n4 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=16 m=16
+XC7 Vin_n sw_sp_n5 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=8 m=8
+XC8 Vin_n sw_n3 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=32 m=32
+XC9 Vin_n sw_n4 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=16 m=16
+XC10 Vin_n sw_n5 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=8 m=8
+XC11 Vin_n sw_sp_n6 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=4 m=4
+XC12 Vin_n sw_sp_n7 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=2 m=2
+XC13 Vin_n sw_sp_n8 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=1
+XC14 Vin_n sw_n6 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=4 m=4
+XC15 Vin_n sw_n7 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=2 m=2
+XC16 Vin_n sw_n8 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=1
+XC17 Vin_n sw_sp_n9 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=1
+XC18 Vin_p sw_sp_p1 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=128 m=128
+XC19 Vin_p sw_sp_p2 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=64 m=64
+XC20 Vin_p sw_p1 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=128 m=128
+XC21 Vin_p sw_p2 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=64 m=64
+XC22 Vin_p sw_sp_p3 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=32 m=32
+XC23 Vin_p sw_sp_p4 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=16 m=16
+XC24 Vin_p sw_sp_p5 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=8 m=8
+XC25 Vin_p sw_p3 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=32 m=32
+XC26 Vin_p sw_p4 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=16 m=16
+XC27 Vin_p sw_p5 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=8 m=8
+XC28 Vin_p sw_sp_p6 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=4 m=4
+XC29 Vin_p sw_sp_p7 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=2 m=2
+XC30 Vin_p sw_sp_p8 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=1
+XC31 Vin_p sw_p6 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=4 m=4
+XC32 Vin_p sw_p7 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=2 m=2
+XC33 Vin_p sw_p8 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=1
+XC34 Vin_p sw_sp_p9 sky130_fd_pr__cap_mim_m3_1 W=unit_cap_w L=unit_cap_l MF=1 m=1
+.ends
+
+
+* expanding   symbol:  src/capacitor_switch16/capacitor_switch16.sym # of pins=4
+** sym_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch16/capacitor_switch16.sym
+** sch_path:
+*+ /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch16/capacitor_switch16.sch
+.subckt capacitor_switch16 VDD VSS Vout Vin
+*.iopin VDD
+*.ipin Vin
+*.opin Vout
+*.iopin VSS
+XM1 net1 Vin VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM2 net1 Vin VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM3 net2 net1 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM4 net2 net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM5 net3 net2 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=8 m=8
+XM6 net3 net2 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=8 m=8
+XM7 Vout net3 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=16 m=16
+XM8 Vout net3 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=16 m=16
+.ends
+
+
+* expanding   symbol:  src/capacitor_switch8/capacitor_switch8.sym # of pins=4
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch8/capacitor_switch8.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch8/capacitor_switch8.sch
+.subckt capacitor_switch8 VDD VSS Vout Vin
+*.iopin VDD
+*.ipin Vin
+*.opin Vout
+*.iopin VSS
+XM1 net1 Vin VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM2 net1 Vin VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM3 net2 net1 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=2 m=2
+XM4 net2 net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=2 m=2
+XM5 net3 net2 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM6 net3 net2 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM7 Vout net3 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=8 m=8
+XM8 Vout net3 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=8 m=8
+.ends
+
+
+* expanding   symbol:  src/capacitor_switch4/capacitor_switch4.sym # of pins=4
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch4/capacitor_switch4.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch4/capacitor_switch4.sch
+.subckt capacitor_switch4 VDD VSS Vout Vin
+*.iopin VDD
+*.ipin Vin
+*.opin Vout
+*.iopin VSS
+XM1 net1 Vin VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM2 net1 Vin VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM3 Vout net1 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+XM4 Vout net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=4 m=4
+.ends
+
+
+* expanding   symbol:  src/capacitor_switch2/capacitor_switch2.sym # of pins=4
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch2/capacitor_switch2.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/capacitor_switch2/capacitor_switch2.sch
+.subckt capacitor_switch2 VDD VSS Vout Vin
+*.iopin VDD
+*.ipin Vin
+*.opin Vout
+*.iopin VSS
+XM1 net1 Vin VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM2 net1 Vin VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=1 m=1
+XM3 Vout net1 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.910 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=2 m=2
+XM4 Vout net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1.650 nf=1 ad='int((nf+1)/2) * W/nf * 0.29' as='int((nf+2)/2) * W/nf * 0.29'
++ pd='2*int((nf+1)/2) * (W/nf + 0.29)' ps='2*int((nf+2)/2) * (W/nf + 0.29)' nrd='0.29 / W' nrs='0.29 / W'
++ sa=0 sb=0 sd=0 mult=2 m=2
+.ends
+
+
+* expanding   symbol:  src/demux2/demux2.sym # of pins=6
+** sym_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/demux2/demux2.sym
+** sch_path: /foss/designs/sky130-10-bit-SAR-ADC/xschem/src/demux2/demux2.sch
+.subckt demux2 S VDD VSS OUT_0 IN OUT_1
+*.ipin S
+*.opin OUT_0
+*.ipin IN
+*.opin OUT_1
+*.iopin VDD
+*.iopin VSS
+x1 net1 IN VSS VSS VDD VDD OUT_0 sky130_fd_sc_hd__and2_0
+x2 S IN VSS VSS VDD VDD OUT_1 sky130_fd_sc_hd__and2_0
+x3 S VSS VSS VDD VDD net1 sky130_fd_sc_hd__inv_1
+.ends
+
+.GLOBAL GND
+.end

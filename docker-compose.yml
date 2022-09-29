@@ -4,7 +4,7 @@ services:
     image: ngspice-batch-runner:latest
     environment:
       AWS_BATCH_JOB_ARRAY_INDEX: 0
-      NGSPICE_TEST: sar_adc_sine_test.spice
+      NGSPICE_TEST: sar_adc_sine_max_sample_test.spice
       NGSPICE_TEST_PATH: xschem/simulation
     volumes: 
      - ./docker_volume:/foss/designs:rw
@@ -12,7 +12,7 @@ services:
     image: ngspice-batch-runner:latest
     environment:
       AWS_BATCH_JOB_ARRAY_INDEX: 1
-      NGSPICE_TEST: sar_adc_sine_test.spice
+      NGSPICE_TEST: sar_adc_sine_max_sample_test.spice
       NGSPICE_TEST_PATH: xschem/simulation
     volumes: 
      - ./docker_volume:/foss/designs:rw
