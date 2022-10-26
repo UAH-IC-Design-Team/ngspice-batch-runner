@@ -3,16 +3,40 @@ services:
   loc_test_1:
     image: ngspice-batch-runner:latest
     environment:
-      AWS_BATCH_JOB_ARRAY_INDEX: 0
-      NGSPICE_TEST: sar_adc_sine_max_sample_test.spice
+      AWS_BATCH_JOB_ARRAY_INDEX: 51
+      NGSPICE_TEST: sar_adc_code_step_max_sample_test.spice
       NGSPICE_TEST_PATH: xschem/simulation
     volumes: 
      - ./docker_volume:/foss/designs:rw
   loc_test_2:
     image: ngspice-batch-runner:latest
     environment:
-      AWS_BATCH_JOB_ARRAY_INDEX: 1
-      NGSPICE_TEST: sar_adc_sine_max_sample_test.spice
+      AWS_BATCH_JOB_ARRAY_INDEX: 52
+      NGSPICE_TEST: sar_adc_code_step_max_sample_test.spice
+      NGSPICE_TEST_PATH: xschem/simulation
+    volumes: 
+     - ./docker_volume:/foss/designs:rw
+  loc_test_3:
+    image: ngspice-batch-runner:latest
+    environment:
+      AWS_BATCH_JOB_ARRAY_INDEX: 106
+      NGSPICE_TEST: sar_adc_code_step_max_sample_test.spice
+      NGSPICE_TEST_PATH: xschem/simulation
+    volumes: 
+     - ./docker_volume:/foss/designs:rw
+  loc_test_4:
+    image: ngspice-batch-runner:latest
+    environment:
+      AWS_BATCH_JOB_ARRAY_INDEX: 146
+      NGSPICE_TEST: sar_adc_code_step_max_sample_test.spice
+      NGSPICE_TEST_PATH: xschem/simulation
+    volumes: 
+     - ./docker_volume:/foss/designs:rw
+  loc_test_5:
+    image: ngspice-batch-runner:latest
+    environment:
+      AWS_BATCH_JOB_ARRAY_INDEX: 195
+      NGSPICE_TEST: sar_adc_code_step_max_sample_test.spice
       NGSPICE_TEST_PATH: xschem/simulation
     volumes: 
      - ./docker_volume:/foss/designs:rw
